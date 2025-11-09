@@ -1,0 +1,63 @@
+---
+title: "Experiment"
+author: "Brad Cannell"
+date: "2025-11-08"
+format: html
+---
+
+# Overview
+
+Early experimenting with the KPI project and Duckdb.
+
+# Load Packages
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(duckdb)
+library(dbplyr)
+```
+
+# Load Data
+
+```{r}
+con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+```
+
+```{r}
+# Data checks
+dbGetQuery(con, "SHOW TABLES;")
+```
+
+# Using v_current_faculty in R
+
+Example: list current faculty by unit and rank:
+
+```{r}
+con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+
+current <- dbGetQuery(con, "
+  SELECT unit_code, rank, COUNT(*) AS n
+  FROM v_current_faculty
+  GROUP BY unit_code, rank
+  ORDER BY unit_code, rank;
+")
+
+dbDisconnect(con)
+current
+```
+
+Example: simple roster view:
+
+```{r}
+con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+
+roster <- dbGetQuery(con, "
+  SELECT first_name, last_name, email, unit_code, rank, track, fte_share
+  FROM v_current_faculty
+  ORDER BY unit_code, last_name, first_name;
+")
+
+dbDisconnect(con)
+roster
+```
+
