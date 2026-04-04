@@ -1,38 +1,47 @@
-# Harris College Key Performance Indicotors
+# Harris College Key Performance Indicators
 
 This project creates and manages a lightweight relational database for tracking
-faculty, appointments, and related metrics in Harris College.
+faculty status and related metrics in Harris College.
+
+## 🎯 Purpose
+
+1. Describe Harris College faculty status (e.g., tenure track, graduate status).
+2. Monitor research KPIs (e.g., research projects, grant writing, and publishing).
+3. Track faculty research interests and facilitate research collaborations.
 
 ---
 
 ## 📁 Directory Structure
 
 ```
-faculty-db/
-├─ db/                       # Contains the DuckDB database file (faculty.duckdb)
-│  └─ faculty.duckdb
-├─ sql/                      # SQL DDL files that define tables and views
-│  ├─ 01_people.sql
-│  ├─ 02_person_appointments.sql
-│  └─ views_01_current_faculty.sql
-├─ R/                        # R scripts that create schema and load data
-│  ├─ data_01_duckdb_schema.R
-│  ├─ data_02_load_people.R
-│  └─ data_03_load_faculty_appointments.R
-├─ data/                     # CSV data used to populate the database
-│  ├─ faculty_people.csv
-│  └─ faculty_appointments.csv
-└─ README.md                 # Project overview and usage instructions
-└─ Experiment.md             # Quarto for used for experimentation
+HC_KPIs/
+├── db/
+│   └── faculty.duckdb
+├── sql/
+│   ├── 01_people.sql
+│   ├── 02_tenure_status.sql
+│   ├── 03_graduate_faculty_status.sql
+│   └── views_01_current_faculty.sql
+├── R/
+│   ├── data_01_duckdb_schema.R
+│   ├── data_02_load_people.R
+│   ├── data_03_load_tenure_status.R
+│   └── data_04_load_grad_faculty_status.R
+├── data/
+│   └── raw/
+│       └── faculty_roster_clean.csv
+└── README.md
 ```
+
+---
 
 ## 🧩 Data Model
 
-The Harris College KPIs faculty database is organized around a **core person–appointment structure**:
+The database is organized around a **core person–status structure**:
 
-- **`people`** stores one record per individual (faculty or staff).
-- **`person_appointments`** stores one record per appointment, position, or change in role over time.
-- A single person can have **multiple appointments** across units or across time (e.g., promotions, transfers, or joint appointments).
+- **`people`** stores one record per individual.
+- **`tenure_status`** stores one record per person per unit, with history preserved via `valid_from`/`valid_to` dates. A person with a joint appointment (e.g., KINE and LIINK) will have two rows.
+- **`graduate_faculty_status`** stores one record per person, also time-varying.
 
 ### Entity-Relationship Diagram
 
@@ -42,37 +51,56 @@ erDiagram
       TEXT person_id PK
       TEXT first_name
       TEXT last_name
-      TEXT email
-      TEXT orcid
     }
 
-    person_appointments {
-      TEXT appt_id PK
+    tenure_status {
+      TEXT tenure_id PK
       TEXT person_id FK
       TEXT unit_code
-      TEXT rank
+      TEXT unit_name
       TEXT track
-      DOUBLE fte_share
-      TEXT status
       DATE valid_from
       DATE valid_to
       TEXT source
       TEXT notes
     }
 
-    people ||--o{ person_appointments : "has appointments"
+    graduate_faculty_status {
+      TEXT grad_id PK
+      TEXT person_id FK
+      BOOLEAN is_graduate_faculty
+      DATE valid_from
+      DATE valid_to
+      TEXT source
+      TEXT notes
+    }
+
+    people ||--o{ tenure_status : "has tenure status"
+    people ||--o{ graduate_faculty_status : "has grad faculty status"
 ```
 
 ### Table Overview
 
-| Table | Type | Description |
-|--------|------|-------------|
-| `people` | Core table | Contains basic identifying information for each person. |
-| `person_appointments` | Core table | Contains time-varying details (unit, rank, FTE, status) for each appointment. |
-| `v_current_appointments` | View | Filters `person_appointments` to show only current and active appointments. |
-| `v_current_faculty` | View | Joins `people` and `v_current_appointments` to show all currently active faculty members. |
+| Table                     | Type       | Description                                                               |
+| ------------------------- | ---------- | ------------------------------------------------------------------------- |
+| `people`                  | Core table | Basic identifying information for each person.                            |
+| `tenure_status`           | Core table | Time-varying track and unit for each person. One row per person per unit. |
+| `graduate_faculty_status` | Core table | Time-varying graduate faculty standing for each person.                   |
+| `v_current_tenure`        | View       | Filters `tenure_status` to active rows only.                              |
+| `v_current_grad_faculty`  | View       | Filters `graduate_faculty_status` to active rows only.                    |
+| `v_current_faculty`       | View       | Joins all three tables into a single current faculty roster.              |
 
-This normalized structure keeps historical records of each person’s trajectory within the college and makes it easy to query current status, track promotions, and maintain longitudinal consistency.
+### Valid Values
+
+**`track`** (tenure_status):
+
+- `Tenured`
+- `Tenure-Track`
+- `Professional Practice`
+
+**`unit_code`** (tenure_status):
+
+- APHS, COSD, HCHS, KINE, LIINK, NRAN, NURS, OTD, PA, SOWO
 
 ---
 
@@ -82,21 +110,30 @@ This normalized structure keeps historical records of each person’s trajectory
    - Double-click `KPIs.Rproj` or open this folder in RStudio.
 
 2. **Create the database and tables**
+
    ```r
    source("R/data_01_duckdb_schema.R")
    ```
 
-3. **Load faculty data**
+3. **Load people**
+
    ```r
    source("R/data_02_load_people.R")
    ```
 
-4. **Load faculty appointments**
+4. **Load tenure status**
+
    ```r
-   source("R/data_03_load_faculty_appointments.R")
+   source("R/data_03_load_tenure_status.R")
    ```
 
-5. **Explore the data**
+5. **Load graduate faculty status**
+
+   ```r
+   source("R/data_04_load_grad_faculty_status.R")
+   ```
+
+6. **Explore the data**
    ```r
    library(DBI)
    library(duckdb)
@@ -105,81 +142,63 @@ This normalized structure keeps historical records of each person’s trajectory
    dbDisconnect(con)
    ```
 
----
-
-## 🛠️ Development Notes
-
-- Run scripts in numeric order (`data_01_...`, `data_02_...`, etc.).
-- The DuckDB file (`db/faculty.duckdb`) is **not** tracked in version control.
-- SQL files define database structure; R scripts manage data loading.
-- To rebuild the database from scratch, delete `db/faculty.duckdb` and rerun `data_01_duckdb_schema.R`.
+> **Always run scripts in order** (`01` → `02` → `03` → `04`).
 
 ---
 
 ## ➕ Adding or Updating Data
 
-There are two core data tables in this project:
-- **people** – one record per person/faculty
-- **person_appointments** – one record per appointment or change in role/unit over time
+All data flows from a single source file:
 
-### 1️⃣ Add or Update Faculty (people)
+```
+data/raw/faculty_roster_clean.csv
+```
 
-1. Open or edit the file **`data/faculty_people.csv`**.
-   - Each row represents one person.
-   - Leave `person_id` blank for new people (the loader script will generate a UUID automatically).
-   - Do **not** modify existing `person_id` values — these are permanent keys used in other tables.
+Expected columns:
 
-2. Save the CSV, then run:
+| Column                | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| `given_name`          | First name                                      |
+| `last_name`           | Last name                                       |
+| `track`               | Tenured, Tenure-Track, or Professional Practice |
+| `unit_code`           | Department code (e.g., KINE, NURS)              |
+| `unit_name`           | Full department name (optional)                 |
+| `is_graduate_faculty` | TRUE or FALSE                                   |
+
+### To update data
+
+1. Edit `data/raw/faculty_roster_clean.csv` with the new or corrected rows.
+2. Re-run the relevant loader script(s):
    ```r
    source("R/data_02_load_people.R")
+   source("R/data_03_load_tenure_status.R")
+   source("R/data_04_load_grad_faculty_status.R")
    ```
-   This script:
-   - Generates UUIDs for new rows
-   - Updates changed rows (by replacing matching `person_id`s)
-   - Validates required columns (first_name, last_name)
-
-### 2️⃣ Add or Update Appointments
-
-1. Edit **`data/faculty_appointments.csv`**.
-   - Each row represents one appointment for a faculty member.
-   - The `person_id` must match an existing record in the `people` table.
-   - Leave `appt_id` blank for new appointments (a new UUID will be created).
-   - Set `valid_to` to a date when the appointment ends, or leave blank if it’s ongoing.
-
-2. Run:
+3. Verify your changes:
    ```r
-   source("R/data_03_load_faculty_appointments.R")
+   con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+   dbGetQuery(con, "SELECT COUNT(*) AS n_people FROM people;")
+   dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
+   dbDisconnect(con)
    ```
-   This script:
-   - Validates that all `person_id` values exist in the `people` table
-   - Replaces any existing rows with the same `appt_id`
-   - Ensures dates and FTE values are in valid formats
 
-### 3️⃣ Verify Your Changes
+### Joint appointments
 
-After loading, confirm the updates were successful:
+A faculty member with appointments in two units (e.g., KINE and LIINK) should appear as **two rows** in the CSV with the same name but different `unit_code` values. The loader handles this automatically.
 
-```r
-library(DBI)
-library(duckdb)
-con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+### Updating a status (e.g., promotion)
 
-# Check total faculty and appointments
-dbGetQuery(con, "SELECT COUNT(*) AS n_people FROM people;")
-dbGetQuery(con, "SELECT COUNT(*) AS n_appointments FROM person_appointments;")
+To record a change over time rather than overwriting history:
 
-# Preview current active faculty
-dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
-
-dbDisconnect(con)
-```
+1. Set `valid_to` on the old row to the date the status ended.
+2. Add a new row with the updated status and a new `valid_from` date.
 
 ---
 
-# Next Steps (Delete)
+## Development Notes
 
-- Delete this section before pushing to GitHub.
-- Create a visual representation of the relationship between the tables in the faculty database.
-- Create a simple Shiny app for viewing and loading faculty?
-- Start adding other tables we can use to track KPI's (see ClickUp)?
-- Push to GH and see if there is a way to automatically create new ClickUp tasks when I create a new GH issue?
+- Run scripts in numeric order (`data_01_...`, `data_02_...`, etc.).
+- The DuckDB file (`db/faculty.duckdb`) is **not** tracked in version control.
+- SQL files define structure; R scripts manage data loading.
+- To rebuild the database from scratch, delete `db/faculty.duckdb` and rerun all scripts in order.
+- `valid_from` is set to the date the loader script is run (`Sys.Date()`). There is no `valid_from` column in the source CSV.

@@ -1,42 +1,37 @@
 # =============================================================================
-# scripts/01_create_schema.R
-# Creates/updates the faculty_research.duckdb schema
-# for people and person_appointments based on the SQL files in /sql.
+# R/data_01_duckdb_schema.R
+# Creates the DuckDB schema from SQL files in /sql
+# Run this first, before any data loading scripts.
 # =============================================================================
 
-# Load libraries --------------------------------------------------------------
 library(DBI)
 library(duckdb)
 library(readr)
 
 # Paths -----------------------------------------------------------------------
-db_dir  <- "db"
+db_path <- file.path("db", "faculty.duckdb")
 sql_dir <- "sql"
 
-db_path <- file.path("db", "faculty.duckdb")
-
-# Connect to DuckDB -----------------------------------------------------------
+# Connect ---------------------------------------------------------------------
 con <- dbConnect(duckdb::duckdb(dbdir = db_path))
 
-# Find and sort SQL files (01_..., 02_...)
-sql_files <- list.files(sql_dir, pattern = "\\.sql$", full.names = TRUE)
-sql_files <- sort(sql_files)
+# Find and sort SQL files (01_..., 02_..., etc.) ------------------------------
+sql_files <- sort(list.files(sql_dir, pattern = "\\.sql$", full.names = TRUE))
 
 if (length(sql_files) == 0) {
-  stop("No .sql files found in 'sql/' – add 01_people.sql and 02_person_appointments.sql first.")
+  stop("No .sql files found in 'sql/'.")
 }
 
-# Execute each SQL file in order ---------------------------------------
+# Execute each file in order --------------------------------------------------
 for (f in sql_files) {
   cat("Running:", basename(f), "\n")
   stmt <- readr::read_file(f)
   DBI::dbExecute(con, stmt)
 }
 
-# Quick check -----------------------------------------------------------
+# Quick check -----------------------------------------------------------------
 cat("\nTables now in database:\n")
 print(dbGetQuery(con, "SHOW TABLES;"))
 
 dbDisconnect(con)
-
 cat("\nSchema created/updated in:", db_path, "\n")
