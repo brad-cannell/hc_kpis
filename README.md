@@ -195,6 +195,43 @@ To record a change over time rather than overwriting history:
 
 ---
 
+## 💻 New Computer Setup Checklist
+
+Use this checklist when setting up the project on a different machine.
+
+1. Install prerequisites:
+   - `R`
+   - `RStudio` (or your preferred IDE)
+   - `git`
+2. Clone the repository and open the project:
+   - `git clone <your-repo-url>`
+   - `cd hc_kpis`
+   - Open `KPIs.Rproj`
+3. Install required R packages:
+   ```r
+   install.packages(c("DBI", "duckdb", "dplyr", "readr", "stringr", "lubridate"))
+   ```
+4. Confirm source data exists:
+   - `data/raw/faculty_roster_clean.csv`
+5. Build the database in order:
+   ```r
+   source("R/data_01_duckdb_schema.R")
+   source("R/data_02_load_people.R")
+   source("R/data_03_load_tenure_status.R")
+   source("R/data_04_load_grad_faculty_status.R")
+   ```
+6. Smoke-test the database:
+   ```r
+   library(DBI)
+   library(duckdb)
+   con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+   dbGetQuery(con, "SELECT COUNT(*) AS n_people FROM people;")
+   dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
+   dbDisconnect(con)
+   ```
+
+---
+
 ## Development Notes
 
 - Run scripts in numeric order (`data_01_...`, `data_02_...`, etc.).
