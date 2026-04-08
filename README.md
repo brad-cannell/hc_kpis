@@ -202,3 +202,4 @@ To record a change over time rather than overwriting history:
 - SQL files define structure; R scripts manage data loading.
 - To rebuild the database from scratch, delete `db/faculty.duckdb` and rerun all scripts in order.
 - `valid_from` is set to the date the loader script is run (`Sys.Date()`). There is no `valid_from` column in the source CSV.
+- If you are using an extension such as DBCode to view `db/faculty.duckdb`, you may need to restart your IDE to see updates, especially after structural database changes.
