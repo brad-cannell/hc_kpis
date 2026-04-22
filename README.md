@@ -21,12 +21,14 @@ HC_KPIs/
 │   ├── 01_people.sql
 │   ├── 02_tenure_status.sql
 │   ├── 03_graduate_faculty_status.sql
+│   ├── 04_center_affiliations.sql
 │   └── views_01_current_faculty.sql
 ├── R/
 │   ├── data_01_duckdb_schema.R
 │   ├── data_02_load_people.R
 │   ├── data_03_load_tenure_status.R
-│   └── data_04_load_grad_faculty_status.R
+│   ├── data_04_load_grad_faculty_status.R
+│   └── data_05_load_center_affiliations.R
 ├── data/
 │   └── raw/
 │       └── faculty_roster_clean.csv
@@ -42,6 +44,7 @@ The database is organized around a **core person–status structure**:
 - **`people`** stores one record per individual.
 - **`tenure_status`** stores one record per person per unit, with history preserved via `valid_from`/`valid_to` dates. A person with a joint appointment (e.g., KINE and LIINK) will have two rows.
 - **`graduate_faculty_status`** stores one record per person, also time-varying.
+- **`center_affiliations`** stores one record per person per center affiliation, also time-varying.
 
 ### Entity-Relationship Diagram
 
@@ -75,8 +78,21 @@ erDiagram
       TEXT notes
     }
 
+    center_affiliations {
+      TEXT affiliation_id PK
+      TEXT person_id FK
+      TEXT center_code
+      TEXT center_name
+      BOOLEAN is_primary
+      DATE valid_from
+      DATE valid_to
+      TEXT source
+      TEXT notes
+    }
+
     people ||--o{ tenure_status : "has tenure status"
     people ||--o{ graduate_faculty_status : "has grad faculty status"
+    people ||--o{ center_affiliations : "has center affiliations"
 ```
 
 ### Table Overview
@@ -86,8 +102,10 @@ erDiagram
 | `people`                  | Core table | Basic identifying information for each person.                            |
 | `tenure_status`           | Core table | Time-varying track and unit for each person. One row per person per unit. |
 | `graduate_faculty_status` | Core table | Time-varying graduate faculty standing for each person.                   |
+| `center_affiliations`     | Core table | Time-varying center affiliations. One row per person per center.          |
 | `v_current_tenure`        | View       | Filters `tenure_status` to active rows only.                              |
 | `v_current_grad_faculty`  | View       | Filters `graduate_faculty_status` to active rows only.                    |
+| `v_current_center_affiliations` | View | Filters `center_affiliations` to active rows only.                        |
 | `v_current_faculty`       | View       | Joins all three tables into a single current faculty roster.              |
 
 ### Valid Values
@@ -133,7 +151,13 @@ erDiagram
    source("R/data_04_load_grad_faculty_status.R")
    ```
 
-6. **Explore the data**
+6. **Load center affiliations**
+
+   ```r
+   source("R/data_05_load_center_affiliations.R")
+   ```
+
+7. **Explore the data**
    ```r
    library(DBI)
    library(duckdb)
@@ -142,7 +166,7 @@ erDiagram
    dbDisconnect(con)
    ```
 
-> **Always run scripts in order** (`01` → `02` → `03` → `04`).
+> **Always run scripts in order** (`01` → `02` → `03` → `04` → `05`).
 
 ---
 
@@ -164,6 +188,9 @@ Expected columns:
 | `unit_code`           | Department code (e.g., KINE, NURS)              |
 | `unit_name`           | Full department name (optional)                 |
 | `is_graduate_faculty` | TRUE or FALSE                                   |
+| `center_code`         | Center code or short label (optional)           |
+| `center_name`         | Full center name (optional)                     |
+| `is_primary`          | TRUE or FALSE (optional, defaults to FALSE)     |
 
 ### To update data
 
@@ -173,6 +200,7 @@ Expected columns:
    source("R/data_02_load_people.R")
    source("R/data_03_load_tenure_status.R")
    source("R/data_04_load_grad_faculty_status.R")
+   source("R/data_05_load_center_affiliations.R")
    ```
 3. Verify your changes:
    ```r
@@ -190,6 +218,10 @@ Expected columns:
 ### Joint appointments
 
 A faculty member with appointments in two units (e.g., KINE and LIINK) should appear as **two rows** in the CSV with the same name but different `unit_code` values. The loader handles this automatically.
+
+### Center affiliations
+
+Center affiliations are loaded when `center_code` is present in the source CSV. If center columns are not available yet, the center loader exits without changing data.
 
 ### Updating a status (e.g., promotion)
 
@@ -224,6 +256,7 @@ Use this checklist when setting up the project on a different machine.
    source("R/data_02_load_people.R")
    source("R/data_03_load_tenure_status.R")
    source("R/data_04_load_grad_faculty_status.R")
+   source("R/data_05_load_center_affiliations.R")
    ```
 6. Smoke-test the database:
    ```r

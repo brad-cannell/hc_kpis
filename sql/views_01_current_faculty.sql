@@ -10,6 +10,12 @@ FROM graduate_faculty_status
 WHERE valid_from <= CURRENT_DATE
   AND (valid_to IS NULL OR valid_to >= CURRENT_DATE);
 
+CREATE OR REPLACE VIEW v_current_center_affiliations AS
+SELECT *
+FROM center_affiliations
+WHERE valid_from <= CURRENT_DATE
+  AND (valid_to IS NULL OR valid_to >= CURRENT_DATE);
+
 CREATE OR REPLACE VIEW v_current_faculty AS
 SELECT
   p.person_id,
