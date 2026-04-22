@@ -4,11 +4,11 @@
 #   HC_KPIS/data/raw/faculty_roster_clean.csv
 # =============================================================================
 
-library(DBI)
-library(duckdb)
-library(readr)
-library(dplyr)
-library(uuid)
+suppressPackageStartupMessages(library(DBI))
+suppressPackageStartupMessages(library(duckdb))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(uuid))
 
 # Paths -----------------------------------------------------------------------
 db_path   <- file.path("db", "faculty.duckdb")
@@ -17,8 +17,30 @@ data_path <- file.path("data", "raw", "faculty_roster_clean.csv")
 if (!file.exists(db_path)) stop("Database not found. Run data_01_duckdb_schema.R first.")
 if (!file.exists(data_path)) stop("CSV not found at ", data_path)
 
+# Connection helper ------------------------------------------------------------
+connect_duckdb_safe <- function(path) {
+  tryCatch(
+    DBI::dbConnect(duckdb::duckdb(dbdir = path)),
+    error = function(e) {
+      msg <- conditionMessage(e)
+      if (grepl("Could not set lock on file|Conflicting lock is held", msg)) {
+        stop(
+          paste0(
+            "DuckDB file is locked by another process.\n",
+            "Close any open DB viewers/extensions using ", path, " and try again.\n",
+            "If needed, restart your IDE/R session to clear stale locks.\n\n",
+            "Original error: ", msg
+          ),
+          call. = FALSE
+        )
+      }
+      stop(e)
+    }
+  )
+}
+
 # Connect ---------------------------------------------------------------------
-con <- dbConnect(duckdb::duckdb(dbdir = db_path))
+con <- connect_duckdb_safe(db_path)
 
 # Pull people table for joining -----------------------------------------------
 people_db <- dbGetQuery(con, "SELECT person_id, first_name, last_name FROM people;")

@@ -182,6 +182,11 @@ Expected columns:
    dbDisconnect(con)
    ```
 
+`data_02_load_people.R` is idempotent: rerunning it will not duplicate people.
+- Existing person + unchanged data -> no change
+- Existing person + changed name formatting/casing -> update
+- New person -> insert
+
 ### Joint appointments
 
 A faculty member with appointments in two units (e.g., KINE and LIINK) should appear as **two rows** in the CSV with the same name but different `unit_code` values. The loader handles this automatically.
@@ -240,3 +245,4 @@ Use this checklist when setting up the project on a different machine.
 - To rebuild the database from scratch, delete `db/faculty.duckdb` and rerun all scripts in order.
 - `valid_from` is set to the date the loader script is run (`Sys.Date()`). There is no `valid_from` column in the source CSV.
 - If you are using an extension such as DBCode to view `db/faculty.duckdb`, you may need to restart your IDE to see updates, especially after structural database changes.
+- `people` enforces normalized-name uniqueness (`trim` + lowercase) to prevent accidental duplicate inserts.
