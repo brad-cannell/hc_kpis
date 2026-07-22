@@ -24,9 +24,14 @@ SELECT
   t.unit_code,
   t.unit_name,
   t.track,
-  g.is_graduate_faculty
+  g.is_graduate_faculty,
+  c.center_code,
+  c.center_name,
+  c.is_primary AS is_primary_center_affiliation
 FROM people p
 LEFT JOIN v_current_tenure t
   ON p.person_id = t.person_id
 LEFT JOIN v_current_grad_faculty g
-  ON p.person_id = g.person_id;
+  ON p.person_id = g.person_id
+LEFT JOIN v_current_center_affiliations c
+  ON p.person_id = c.person_id;

@@ -43,6 +43,7 @@ connect_duckdb_safe <- function(path) {
 
 # Connect ---------------------------------------------------------------------
 con <- connect_duckdb_safe(db_path)
+load_date <- Sys.Date()
 
 # Pull people table for joining -----------------------------------------------
 people_db <- dbGetQuery(con, "SELECT person_id, first_name, last_name FROM people;")
@@ -63,7 +64,7 @@ tenure_clean <- raw |>
   left_join(people_db, by = c("first_name", "last_name")) |>
   mutate(
     tenure_id  = UUIDgenerate(n = n()),
-    valid_from = Sys.Date(),   # adjust as needed
+    valid_from = load_date,   # adjust as needed
     valid_to   = as.Date(NA),
     source     = "faculty_roster_clean.csv",
     notes      = NA_character_
@@ -93,12 +94,58 @@ if (nrow(bad_tracks) > 0) {
   )
 }
 
-# Upsert ----------------------------------------------------------------------
+# Synchronize current statuses ------------------------------------------------
+# The roster is a complete current-state snapshot. Preserve an unchanged
+# person/unit/track row so a routine reload does not manufacture history; close
+# a previous row only when its current value is absent from the new snapshot.
+# Same-day corrections cannot have a meaningful date range, so replace the
+# original same-day row rather than trying to close it one day before it began.
 dbExecute(con, "DROP TABLE IF EXISTS stg_tenure;")
 dbExecute(con, "CREATE TEMP TABLE stg_tenure AS SELECT * FROM tenure_status WHERE 1=0;")
 dbWriteTable(con, "stg_tenure", tenure_clean, append = TRUE)
-dbExecute(con, "DELETE FROM tenure_status WHERE tenure_id IN (SELECT tenure_id FROM stg_tenure);")
-dbExecute(con, "INSERT INTO tenure_status SELECT * FROM stg_tenure;")
+dbExecute(con, "
+  DELETE FROM tenure_status
+  WHERE valid_to IS NULL
+    AND valid_from = CAST(? AS DATE)
+    AND source = 'faculty_roster_clean.csv'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM stg_tenure AS s
+      WHERE s.person_id = tenure_status.person_id
+        AND s.unit_code = tenure_status.unit_code
+        AND s.track = tenure_status.track
+        AND s.source = tenure_status.source
+    );
+", params = list(load_date))
+dbExecute(con, "
+  UPDATE tenure_status AS t
+  SET valid_to = CAST(? AS DATE) - INTERVAL 1 DAY
+  WHERE t.valid_to IS NULL
+    AND t.valid_from < CAST(? AS DATE)
+    AND t.source = 'faculty_roster_clean.csv'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM stg_tenure AS s
+      WHERE s.person_id = t.person_id
+        AND s.unit_code = t.unit_code
+        AND s.track = t.track
+        AND s.source = t.source
+    );
+", params = list(load_date, load_date))
+dbExecute(con, "
+  INSERT INTO tenure_status
+  SELECT s.*
+  FROM stg_tenure AS s
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM tenure_status AS t
+    WHERE t.person_id = s.person_id
+      AND t.unit_code = s.unit_code
+      AND t.track = s.track
+      AND t.valid_to IS NULL
+      AND t.source = s.source
+  );
+")
 
 # Check -----------------------------------------------------------------------
 n <- dbGetQuery(con, "SELECT COUNT(*) AS n FROM tenure_status")$n

@@ -3,6 +3,8 @@
 This project creates and manages a lightweight relational database for tracking
 faculty status and related metrics in Harris College.
 
+For day-to-day roster updates and common checks, see [GUIDE.md](GUIDE.md).
+
 ## 🎯 Purpose
 
 1. Describe Harris College faculty status (e.g., tenure track, graduate status).
