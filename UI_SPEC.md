@@ -1,6 +1,6 @@
 # Harris College Faculty Finder: Version 0 UI Specification
 
-Status: Approved 2026-07-21. Revised 2026-09-25 after Brad's hands-on review (pending approval): separate name, unit, and track columns; a general center-or-institute filter and column in place of the CND-only controls; and a single search control.
+Status: Approved 2026-07-21. Revised 2026-09-25 after Brad's hands-on review and approved the same day: separate name, unit, and track columns; a general center-or-institute filter and column in place of the CND-only controls; and a single search control.
 
 ## Purpose and boundary
 
