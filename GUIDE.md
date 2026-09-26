@@ -99,6 +99,16 @@ RENV_CONFIG_AUTOLOADER_ENABLED=FALSE Rscript tests/regression_test_status_loader
 
 The check copies the needed files into a temporary folder, changes one disposable roster record, and confirms that both status views return exactly one current record without adding history on a later unchanged reload. It does not modify the Dropbox data or the working database.
 
+## Run the Faculty Finder check
+
+After changing `app/app.R`, `UI_SPEC.md` filter or column rules, or the `v_current_faculty` view, and after a roster refresh if you want to confirm the Finder still agrees with the database, run:
+
+```sh
+RENV_CONFIG_AUTOLOADER_ENABLED=FALSE Rscript tests/test_faculty_finder.R
+```
+
+The check compares the Finder's filters and displayed columns with independent SQL queries, first on the working database (read-only) and then on a temporary copy with synthetic people for cases the real roster lacks: a joint appointment, extra centers, and a person with no records. It also checks the missing-database, out-of-date-schema, and locked-database messages. It prints `ALL CHECKS PASSED`, or lists each failure and exits with an error. It takes about a minute and does not modify the Dropbox data or the working database. When a planned change alters filter or column behavior, update the test's expectations in the same change.
+
 ## Troubleshooting
 
 If the loader reports that the database is locked, close other DuckDB connections and retry. If a roster row cannot be matched to a person, check the `given_name` and `family_name` spelling against the same CSV. If you need a wholly fresh rebuild, first make a backup of the Dropbox source data, then remove only the local `db/faculty.duckdb` file and run the five loader scripts in order.
