@@ -73,9 +73,9 @@ renv::load()
 shiny::runApp("app", launch.browser = TRUE)
 ```
 
-The app opens `db/faculty.duckdb` through a read-only connection and shows one row per person. A faculty member with a joint appointment or multiple CND records remains one person in the results table; their distinct current appointment combinations are listed together. Results are sorted by last name, then first name, so `Rivera` comes before `Rivera Campos`; select a column heading to re-sort the table.
+The app opens `db/faculty.duckdb` through a read-only connection and shows one row per person, with columns for last name, first name, unit, track, graduate-faculty status, and centers and institutes. A faculty member with a joint appointment or several center affiliations remains one person in the results table. For a joint appointment, the Unit and Track cells list one appointment per line, and each Unit line pairs with the Track line beside it. The Centers and institutes column lists the person's current center codes (CND first), or `None`. Results are sorted by last name, then first name, so `Rivera` comes before `Rivera Campos`; select a column heading to re-sort the table.
 
-Use `Find faculty` for a case-insensitive partial name search. You may select more than one Unit or Tenure track; selections within either control use OR logic, while the Unit and Tenure track controls use AND logic within the same current appointment. Graduate-faculty status and CND affiliation filter people. `Clear filters` restores the complete current roster.
+Use `Find faculty` for a case-insensitive partial name search; it is the only search box, so the `Showing <n> current faculty` count always matches the table. You may select more than one Unit or Tenure track; selections within either control use OR logic, while the Unit and Tenure track controls use AND logic within the same current appointment. Graduate-faculty status and `Center or institute` filter people. `Center or institute` offers All, Any center or institute, No center or institute, and each center currently in the database; a center appears there automatically once its affiliations are loaded. `Clear filters` restores the complete current roster.
 
 If the app says that the database cannot be read, close other database viewers or loader sessions and follow the rebuild steps below. If it says the schema is not expected, run all five loader scripts in order and relaunch the app. The detailed technical error remains in the R console for diagnosis.
 
@@ -102,3 +102,12 @@ The check copies the needed files into a temporary folder, changes one disposabl
 ## Troubleshooting
 
 If the loader reports that the database is locked, close other DuckDB connections and retry. If a roster row cannot be matched to a person, check the `given_name` and `family_name` spelling against the same CSV. If you need a wholly fresh rebuild, first make a backup of the Dropbox source data, then remove only the local `db/faculty.duckdb` file and run the five loader scripts in order.
+
+If a query of `v_current_faculty` (or the Faculty Finder) fails with an error mentioning the ICU extension or `CURRENT_DATE`, the locked `duckdb` package needs DuckDB's ICU extension to evaluate the current-record views. Install it once per machine from an R session in the project folder, then retry:
+
+```r
+renv::load()
+con <- DBI::dbConnect(duckdb::duckdb())
+DBI::dbExecute(con, "INSTALL icu")
+DBI::dbDisconnect(con, shutdown = TRUE)
+```

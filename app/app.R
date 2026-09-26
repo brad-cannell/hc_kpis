@@ -29,8 +29,15 @@ required_faculty_columns <- c(
   "unit_name",
   "track",
   "is_graduate_faculty",
-  "center_code"
+  "center_code",
+  "center_name"
 )
+
+# Sentinel values for the non-center choices in the Center or institute
+# dropdown. The leading dot keeps them from colliding with a real center code.
+center_filter_all <- ".all"
+center_filter_any <- ".any"
+center_filter_none <- ".none"
 
 #' Read current Finder data from DuckDB without writing.
 #'
@@ -52,7 +59,7 @@ read_current_faculty <- function(database_path) {
 
       current_faculty <- DBI::dbGetQuery(
         connection,
-        "SELECT person_id, first_name, last_name, unit_code, unit_name, track, is_graduate_faculty, center_code FROM v_current_faculty"
+        "SELECT person_id, first_name, last_name, unit_code, unit_name, track, is_graduate_faculty, center_code, center_name FROM v_current_faculty"
       )
 
       if (!all(required_faculty_columns %in% names(current_faculty))) {
@@ -108,11 +115,52 @@ display_unit <- function(unit_name, unit_code) {
   "Not recorded"
 }
 
+#' Order center codes for display: CND first, then alphabetically.
+#'
+#' @param center_codes Center codes, possibly with duplicates or missing values.
+#' @return Unique, non-missing center codes in display order.
+#' @details UI_SPEC.md lists CND first because it is the affiliation Brad
+#'   checks most often; every other center follows alphabetically so newly
+#'   loaded centers have a predictable place.
+order_center_codes <- function(center_codes) {
+  center_codes <- unique(center_codes[!is.na(center_codes) & nzchar(center_codes)])
+  c(intersect("CND", center_codes), sort(setdiff(center_codes, "CND")))
+}
+
+#' Build the Center or institute dropdown choices from current data.
+#'
+#' @param current_faculty Appointment-level current-faculty data.
+#' @return A named character vector: labels are shown, values are filtered on.
+#' @details Choices come from the current `center_code` values, so a center
+#'   added through the loaders appears without an app change (UI_SPEC.md).
+center_choices <- function(current_faculty) {
+  center_codes <- order_center_codes(current_faculty$center_code)
+
+  center_labels <- vapply(center_codes, function(code) {
+    names_for_code <- current_faculty$center_name[!is.na(current_faculty$center_code) & current_faculty$center_code == code]
+    names_for_code <- names_for_code[!is.na(names_for_code) & nzchar(names_for_code)]
+
+    if (length(names_for_code) == 0L) {
+      return(code)
+    }
+
+    sprintf("%s (%s)", names_for_code[[1L]], code)
+  }, character(1))
+
+  c(
+    stats::setNames(
+      c(center_filter_all, center_filter_any, center_filter_none),
+      c("All", "Any center or institute", "No center or institute")
+    ),
+    stats::setNames(center_codes, center_labels)
+  )
+}
+
 #' Aggregate current source rows to one Finder row per person.
 #'
 #' @param current_faculty Appointment-level current-faculty data.
 #' @return A person-level data frame with display and filter fields.
-#' @details Valid joint appointments and centre affiliations can create several
+#' @details Valid joint appointments and center affiliations can create several
 #'   joined view rows, so aggregation prevents those data from looking like
 #'   duplicate people.
 summarize_people <- function(current_faculty) {
@@ -123,20 +171,19 @@ summarize_people <- function(current_faculty) {
     first_name <- person_data$first_name[[1L]]
     last_name <- person_data$last_name[[1L]]
 
-    appointments <- unique(vapply(
-      seq_len(nrow(person_data)),
-      function(index) {
-        unit <- display_unit(person_data$unit_name[[index]], person_data$unit_code[[index]])
-        track <- person_data$track[[index]]
-
-        if (is.na(track) || !nzchar(track)) {
-          return(unit)
-        }
-
-        sprintf("%s — %s", unit, track)
-      },
-      character(1)
+    # Center affiliations multiply the joined view rows, so reduce to distinct
+    # unit-and-track pairs before display. Unit and Track are shown in separate
+    # columns, one pair per line, so both vectors keep the same order.
+    appointments <- unique(data.frame(
+      unit = vapply(
+        seq_len(nrow(person_data)),
+        function(index) display_unit(person_data$unit_name[[index]], person_data$unit_code[[index]]),
+        character(1)
+      ),
+      track = ifelse(is.na(person_data$track) | !nzchar(person_data$track), "Not recorded", person_data$track),
+      stringsAsFactors = FALSE
     ))
+    appointments <- appointments[order(appointments$unit, appointments$track), , drop = FALSE]
 
     graduate_values <- as.logical(person_data$is_graduate_faculty)
     graduate_values <- graduate_values[!is.na(graduate_values)]
@@ -148,15 +195,19 @@ summarize_people <- function(current_faculty) {
       "No"
     }
 
-    cnd_affiliated <- any(!is.na(person_data$center_code) & person_data$center_code == "CND")
+    center_codes <- order_center_codes(person_data$center_code)
 
     data.frame(
       person_id = person_id,
-      faculty = sprintf("%s, %s", last_name, first_name),
+      last_name = last_name,
+      first_name = first_name,
       search_name = tolower(sprintf("%s %s %s, %s", first_name, last_name, last_name, first_name)),
-      appointments = paste(sort(appointments), collapse = "; "),
+      # Newline-separated so the browser table can show one pair per line while
+      # still escaping the text (see the multi-line CSS class in the UI).
+      units = paste(appointments$unit, collapse = "\n"),
+      tracks = paste(appointments$track, collapse = "\n"),
       graduate_status = graduate_status,
-      cnd_affiliated = cnd_affiliated,
+      centers = if (length(center_codes) == 0L) "None" else paste(center_codes, collapse = "; "),
       sort_last = tolower(last_name),
       sort_first = tolower(first_name),
       stringsAsFactors = FALSE
@@ -177,11 +228,15 @@ summarize_people <- function(current_faculty) {
 #' @param selected_units Visible unit labels selected by the user.
 #' @param selected_tracks Tenure tracks selected by the user.
 #' @param graduate_filter Graduate-faculty control value.
-#' @param cnd_filter CND-affiliation control value.
+#' @param center_filter Center or institute control value: a sentinel
+#'   (`center_filter_all`, `center_filter_any`, `center_filter_none`) or a
+#'   center code.
 #' @return A filtered person-level data frame.
 #' @details Unit and Tenure Track are matched on the same current appointment,
-#'   then every current appointment is shown for each accepted person.
-filter_people <- function(current_faculty, name_query, selected_units, selected_tracks, graduate_filter, cnd_filter) {
+#'   then every current appointment is shown for each accepted person. Center
+#'   affiliation is a person-level property, so it is checked against all of
+#'   the person's current rows rather than the unit-and-track matches.
+filter_people <- function(current_faculty, name_query, selected_units, selected_tracks, graduate_filter, center_filter) {
   person_summary <- summarize_people(current_faculty)
   matched_appointments <- current_faculty
 
@@ -212,12 +267,18 @@ filter_people <- function(current_faculty, name_query, selected_units, selected_
     person_summary <- person_summary[person_summary$graduate_status == graduate_filter, , drop = FALSE]
   }
 
-  if (identical(cnd_filter, "Affiliated")) {
-    person_summary <- person_summary[person_summary$cnd_affiliated, , drop = FALSE]
-  }
+  if (!is.null(center_filter) && nzchar(center_filter) && !identical(center_filter, center_filter_all)) {
+    has_center <- !is.na(current_faculty$center_code) & nzchar(current_faculty$center_code)
+    affiliated_people <- unique(current_faculty$person_id[has_center])
 
-  if (identical(cnd_filter, "Not affiliated")) {
-    person_summary <- person_summary[!person_summary$cnd_affiliated, , drop = FALSE]
+    if (identical(center_filter, center_filter_any)) {
+      person_summary <- person_summary[person_summary$person_id %in% affiliated_people, , drop = FALSE]
+    } else if (identical(center_filter, center_filter_none)) {
+      person_summary <- person_summary[!person_summary$person_id %in% affiliated_people, , drop = FALSE]
+    } else {
+      center_people <- unique(current_faculty$person_id[has_center & current_faculty$center_code == center_filter])
+      person_summary <- person_summary[person_summary$person_id %in% center_people, , drop = FALSE]
+    }
   }
 
   person_summary
@@ -227,7 +288,14 @@ project_root <- find_project_root()
 database_path <- file.path(project_root, "db", "faculty.duckdb")
 
 ui <- shiny::fluidPage(
-  shiny::tags$head(shiny::tags$title("Harris College Faculty Finder")),
+  shiny::tags$head(
+    shiny::tags$title("Harris College Faculty Finder"),
+    # Unit and Track cells hold one appointment per line. Rendering the
+    # newlines with CSS keeps DT's HTML escaping on for all cell text. "pre"
+    # (not "pre-line") also stops long values such as "Professional Practice"
+    # from wrapping, which would break the line-for-line Unit/Track pairing.
+    shiny::tags$style(".multi-line { white-space: pre; }")
+  ),
   shiny::titlePanel("Harris College Faculty Finder"),
   shiny::tags$h2("Current roster"),
   shiny::fluidRow(
@@ -240,7 +308,8 @@ ui <- shiny::fluidPage(
     shiny::column(
       width = 4,
       shiny::radioButtons("graduate_filter", "Graduate faculty", choices = c("All", "Yes", "No", "Not recorded"), selected = "All", inline = TRUE),
-      shiny::radioButtons("cnd_filter", "CND affiliation", choices = c("All", "Affiliated", "Not affiliated"), selected = "All", inline = TRUE),
+      # Center choices are filled in from the database once it loads.
+      shiny::selectInput("center_filter", "Center or institute", choices = c("All" = center_filter_all), selected = center_filter_all),
       shiny::actionButton("clear_filters", "Clear filters", class = "btn-default")
     )
   ),
@@ -280,6 +349,7 @@ server <- function(input, output, session) {
 
     shiny::updateSelectizeInput(session, "unit_filter", choices = unit_choices, selected = character(0), server = TRUE)
     shiny::updateSelectizeInput(session, "track_filter", choices = track_choices, selected = character(0), server = TRUE)
+    shiny::updateSelectInput(session, "center_filter", choices = center_choices(state$data), selected = center_filter_all)
   })
 
   #' Reset all controls to the approved Finder defaults.
@@ -292,7 +362,7 @@ server <- function(input, output, session) {
     shiny::updateSelectizeInput(session, "unit_filter", selected = character(0))
     shiny::updateSelectizeInput(session, "track_filter", selected = character(0))
     shiny::updateRadioButtons(session, "graduate_filter", selected = "All")
-    shiny::updateRadioButtons(session, "cnd_filter", selected = "All")
+    shiny::updateSelectInput(session, "center_filter", selected = center_filter_all)
   }
 
   shiny::observeEvent(input$clear_filters, clear_all_filters())
@@ -308,7 +378,7 @@ server <- function(input, output, session) {
       selected_units = input$unit_filter,
       selected_tracks = input$track_filter,
       graduate_filter = input$graduate_filter,
-      cnd_filter = input$cnd_filter
+      center_filter = input$center_filter
     )
   })
 
@@ -358,13 +428,15 @@ server <- function(input, output, session) {
     shiny::req(nrow(people) > 0L)
 
     display_table <- data.frame(
-      Faculty = people$faculty,
-      `Current appointment(s)` = people$appointments,
+      `Last name` = people$last_name,
+      `First name` = people$first_name,
+      Unit = people$units,
+      Track = people$tracks,
       `Graduate faculty` = people$graduate_status,
-      `CND affiliation` = ifelse(people$cnd_affiliated, "CND", "Not affiliated"),
+      `Centers and institutes` = people$centers,
       # Hidden rank from the R-side last-then-first order. The browser table
-      # sorts the Faculty column by this rank so its own string sort cannot
-      # reintroduce the combined-text ordering.
+      # sorts the Last name column by this rank so tied last names fall back to
+      # first name, as UI_SPEC.md requires.
       sort_order = seq_len(nrow(people)),
       check.names = FALSE
     )
@@ -375,12 +447,16 @@ server <- function(input, output, session) {
       selection = "none",
       escape = TRUE,
       options = list(
+        # "lrtip" omits DT's own search box ("f"). Find faculty is the only
+        # search control, so the Showing <n> count always matches the table.
+        dom = "lrtip",
         pageLength = 25,
         lengthMenu = c(10, 25, 50),
         order = list(list(0, "asc")),
         columnDefs = list(
-          list(targets = 0, orderData = 4),
-          list(targets = 4, visible = FALSE, searchable = FALSE)
+          list(targets = 0, orderData = 6),
+          list(targets = c(2, 3), className = "multi-line"),
+          list(targets = 6, visible = FALSE, searchable = FALSE)
         ),
         autoWidth = FALSE
       )

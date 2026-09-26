@@ -1,6 +1,6 @@
 # Harris College Faculty Finder: Version 0 UI Specification
 
-Status: Approved 2026-07-21. The Version 0 prototype may now be implemented.
+Status: Approved 2026-07-21. Revised 2026-09-25 after Brad's hands-on review (pending approval): separate name, unit, and track columns; a general center-or-institute filter and column in place of the CND-only controls; and a single search control.
 
 ## Purpose and boundary
 
@@ -24,12 +24,12 @@ Find faculty [________________]  [Clear filters]
 Unit(s)       [All current units                 v]
 Tenure track  [All current tracks                v]
 Graduate      (All) (Yes) (No) (Not recorded)
-CND           (All) (Affiliated) (Not affiliated)
+Center or institute [All                         v]
 
 Showing <n> current faculty
 
-| Faculty | Current appointment(s) | Graduate faculty | CND affiliation |
-|---------|------------------------|------------------|-----------------|
+| Last name | First name | Unit | Track | Graduate faculty | Centers and institutes |
+|-----------|------------|------|-------|------------------|------------------------|
 ```
 
 The page uses ordinary text labels and controls; color is never the only way it communicates a result or state. Keyboard navigation and readable control labels are required.
@@ -40,25 +40,29 @@ All filters apply to current data only. Multiple selections within Unit or Tenur
 
 | Control | Default | Behavior |
 | --- | --- | --- |
-| Find faculty | Empty | Case-insensitive partial match against first name, last name, or the displayed `Last, First` name. |
+| Find faculty | Empty | Case-insensitive partial match against first name, last name, or the combined `Last, First` name. |
 | Unit(s) | All | Multi-select list built from the current `unit_name` and `unit_code` values. A person matches when at least one current appointment belongs to a selected unit. |
 | Tenure track | All | Multi-select list built from the current `track` values: `Tenured`, `Tenure-Track`, and `Professional Practice`. When both Unit and Tenure track are selected, the match must occur in the same current appointment. |
 | Graduate faculty | All | Single-select: All, Yes, No, or Not recorded. Yes and No correspond to the current `is_graduate_faculty` value. |
-| CND affiliation | All | Single-select: All, Affiliated, or Not affiliated. Affiliated means the person has at least one current `center_code = 'CND'` record. |
+| Center or institute | All | Single-select dropdown: All, Any center or institute, No center or institute, then one choice per current center, labeled `center_name (center_code)` or `center_code` when no name is recorded. CND is listed first; other centers follow alphabetically. Choices are built from the current `center_code` values, so a newly loaded center appears without an app change. A person matches a specific center when they have at least one current record with that `center_code`. |
 | Clear filters | Not applicable | Returns every control to its default and restores the unfiltered roster. |
 
 The app filters the current appointment data before assembling the displayed person rows. Each accepted person then displays all of their current appointment combinations, so the table remains informative without multiplying the person into several rows.
 
 ## Results table
 
-The default sort is last name, then first name. Users may sort the visible table by its displayed columns. The app shows a computed count such as `Showing 24 current faculty`; it does not hard-code a roster total.
+The default sort is last name, then first name. Users may sort the visible table by its displayed columns. The app shows a computed count such as `Showing 24 current faculty`; it does not hard-code a roster total. `Find faculty` is the only search control; the table does not show its own search box, so the count always describes the rows displayed.
+
+The table keeps one row per person. For a person with more than one distinct current unit-and-track combination, the Unit and Track cells list one combination per line in the same order, so line 1 of Unit pairs with line 1 of Track.
 
 | Column | Display rule |
 | --- | --- |
-| Faculty | `Last, First`; do not display `person_id`. |
-| Current appointment(s) | One semicolon-separated entry per distinct current unit-and-track combination, for example `Nursing (NURS) — Tenured`. |
+| Last name | `last_name`; do not display `person_id`. Sorting this column sorts by last name, then first name. |
+| First name | `first_name`. |
+| Unit | `unit_name (unit_code)`, or `unit_code` when no unit name is recorded; one line per current appointment combination. |
+| Track | `track`; one line per current appointment combination, aligned with Unit. |
 | Graduate faculty | `Yes`, `No`, or `Not recorded`. |
-| CND affiliation | `CND` when currently affiliated and `Not affiliated` otherwise. |
+| Centers and institutes | The person's current `center_code` values, semicolon-separated and ordered CND first, then alphabetically; `None` when there is no current affiliation. |
 
 No table column exposes status-history dates, loader-source metadata, notes, or database identifiers in Version 0.
 
@@ -96,7 +100,7 @@ Update the guide in the same change whenever a user-visible filter, table column
 
 - Add and lock direct `shiny` and `DT` dependencies in `renv.lock` before committing app code; their current machine-wide availability is not a reproducible project dependency.
 - Keep Version 0 implementation in `app/app.R` only after this specification is approved.
-- Verify the unfiltered screen, each individual filter, combined Unit-and-Tenure-Track filtering, CND filtering, the zero-result state, and filter reset against the current roster.
+- Verify the unfiltered screen, each individual filter, combined Unit-and-Tenure-Track filtering, center-or-institute filtering (including a synthetic second center and a synthetic joint appointment, because the current roster has neither), the zero-result state, and filter reset against the current roster.
 - Verify that the app opens DuckDB read-only and that the standard roster refresh succeeds after the app is closed.
 
 ## Deferred decisions
