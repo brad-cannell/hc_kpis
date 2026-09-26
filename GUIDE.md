@@ -62,6 +62,33 @@ dbDisconnect(con)
 
 If a person has changed tenure track, graduate-faculty status, or unit, the database retains the earlier row as history and exposes only the new row through the `v_current_*` views.
 
+## Use the Faculty Finder
+
+The Faculty Finder is a local, read-only Shiny application for finding and filtering the current faculty roster. It does not edit the Dropbox roster CSV or DuckDB database, expose status history, export data, or provide access to other users.
+
+From the project folder, open your usual R session and run:
+
+```r
+renv::load()
+shiny::runApp("app", launch.browser = TRUE)
+```
+
+The app opens `db/faculty.duckdb` through a read-only connection and shows one row per person. A faculty member with a joint appointment or multiple CND records remains one person in the results table; their distinct current appointment combinations are listed together. Results are sorted by last name, then first name, so `Rivera` comes before `Rivera Campos`; select a column heading to re-sort the table.
+
+Use `Find faculty` for a case-insensitive partial name search. You may select more than one Unit or Tenure track; selections within either control use OR logic, while the Unit and Tenure track controls use AND logic within the same current appointment. Graduate-faculty status and CND affiliation filter people. `Clear filters` restores the complete current roster.
+
+If the app says that the database cannot be read, close other database viewers or loader sessions and follow the rebuild steps below. If it says the schema is not expected, run all five loader scripts in order and relaunch the app. The detailed technical error remains in the R console for diagnosis.
+
+## Refresh the roster while using the Faculty Finder
+
+1. Close the Faculty Finder and any other DuckDB viewer or writer.
+2. Update `data/raw/faculty_roster_clean.csv` using the roster rules above.
+3. Run the five loader scripts in the documented order.
+4. Run the read-only checks in [Check the result](#check-the-result). If loader code changed, also run the regression check below.
+5. Relaunch the Faculty Finder. It opens a new read-only connection to the rebuilt current roster.
+
+There is intentionally no in-app roster refresh or edit control. The CSV and loaders preserve the database's status-history rules.
+
 ## Run the regression check
 
 Before releasing changes to the loader scripts, run:
