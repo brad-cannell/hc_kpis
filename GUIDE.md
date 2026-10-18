@@ -10,14 +10,14 @@ It does not yet track faculty research interests, grants, publications, or other
 
 ## Where the data lives
 
-The editable source data is stored in Dropbox at `/Users/bradcannell/Library/CloudStorage/Dropbox/Datasets/hc_kpis`. In this repository, `data/` is a symlink to that location so the R loader scripts keep using the familiar `data/raw/` paths.
+The editable source data is stored in Dropbox at `/Users/bradcannell/Library/CloudStorage/Dropbox/ADR Admin/HC KPIs`. In this repository, `data/` is a symlink to that location so the R loader scripts keep using the familiar `data/raw/` paths.
 
 The most important file is `data/raw/faculty_roster_clean.csv`. The local DuckDB database created from that file is `db/faculty.duckdb`; it is a rebuildable working file and is not stored in Git.
 
 On a new computer, wait for Dropbox to make that folder available, then create the local link from the project root:
 
 ```sh
-ln -s "/Users/bradcannell/Library/CloudStorage/Dropbox/Datasets/hc_kpis" data
+ln -s "/Users/bradcannell/Library/CloudStorage/Dropbox/ADR Admin/HC KPIs" data
 ```
 
 The symlink is intentionally local and is not versioned. Do not add the roster files or the `data/` symlink to Git.
