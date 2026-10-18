@@ -16,7 +16,7 @@ The most important file is `data/raw/faculty_roster_clean.csv`. The local DuckDB
 
 On a new computer, wait for Dropbox to make that folder available, then create the local link from the project root:
 
-```sh
+``` sh
 ln -s "/Users/bradcannell/Library/CloudStorage/Dropbox/ADR Admin/HC KPIs" data
 ```
 
@@ -24,18 +24,18 @@ The symlink is intentionally local and is not versioned. Do not add the roster f
 
 ## Update the roster
 
-1. Edit `data/raw/faculty_roster_clean.csv` in the Dropbox folder.
-2. Keep one row for each current faculty appointment. Someone with a joint appointment should have one row for each unit.
-3. Use only the allowed tenure-track values: `Tenured`, `Tenure-Track`, or `Professional Practice`.
-4. Use `TRUE` or `FALSE` for `is_graduate_faculty`.
-5. Add `CND` in `center_code`, the full center name in `center_name`, and `TRUE` or `FALSE` in `is_primary` when a current CND affiliation applies.
-6. Treat the CSV as the complete current roster, not a partial update. Removing a current appointment from it closes that appointment in the database on the next load.
+1.  Edit `data/raw/faculty_roster_clean.csv` in the Dropbox folder.
+2.  Keep one row for each current faculty appointment. Someone with a joint appointment should have one row for each unit.
+3.  Use only the allowed tenure-track values: `Tenured`, `Tenure-Track`, or `Professional Practice`.
+4.  Use `TRUE` or `FALSE` for `is_graduate_faculty`.
+5.  Add `CND` in `center_code`, the full center name in `center_name`, and `TRUE` or `FALSE` in `is_primary` when a current CND affiliation applies.
+6.  Treat the CSV as the complete current roster, not a partial update. Removing a current appointment from it closes that appointment in the database on the next load.
 
 ## Rebuild or refresh the database
 
 Open your usual R session in the project folder and run the scripts in order:
 
-```r
+``` r
 source("R/data_01_duckdb_schema.R")
 source("R/data_02_load_people.R")
 source("R/data_03_load_tenure_status.R")
@@ -45,11 +45,11 @@ source("R/data_05_load_center_affiliations.R")
 
 Close any database viewer or R session that has `db/faculty.duckdb` open before running the loaders. DuckDB allows only one writer at a time.
 
-## Check the result
+## Check the result {#check-the-result}
 
 Use the following in R after the load finishes:
 
-```r
+``` r
 library(DBI)
 library(duckdb)
 
@@ -68,7 +68,7 @@ The Faculty Finder is a local, read-only Shiny application for finding and filte
 
 From the project folder, open your usual R session and run:
 
-```r
+``` r
 renv::load()
 shiny::runApp("app", launch.browser = TRUE)
 ```
@@ -81,11 +81,11 @@ If the app says that the database cannot be read, close other database viewers o
 
 ## Refresh the roster while using the Faculty Finder
 
-1. Close the Faculty Finder and any other DuckDB viewer or writer.
-2. Update `data/raw/faculty_roster_clean.csv` using the roster rules above.
-3. Run the five loader scripts in the documented order.
-4. Run the read-only checks in [Check the result](#check-the-result). If loader code changed, also run the regression check below.
-5. Relaunch the Faculty Finder. It opens a new read-only connection to the rebuilt current roster.
+1.  Close the Faculty Finder and any other DuckDB viewer or writer.
+2.  Update `data/raw/faculty_roster_clean.csv` using the roster rules above.
+3.  Run the five loader scripts in the documented order.
+4.  Run the read-only checks in [Check the result](#check-the-result). If loader code changed, also run the regression check below.
+5.  Relaunch the Faculty Finder. It opens a new read-only connection to the rebuilt current roster.
 
 There is intentionally no in-app roster refresh or edit control. The CSV and loaders preserve the database's status-history rules.
 
@@ -93,7 +93,7 @@ There is intentionally no in-app roster refresh or edit control. The CSV and loa
 
 Before releasing changes to the loader scripts, run:
 
-```sh
+``` sh
 RENV_CONFIG_AUTOLOADER_ENABLED=FALSE Rscript tests/regression_test_status_loaders.R
 ```
 
@@ -103,7 +103,7 @@ The check copies the needed files into a temporary folder, changes one disposabl
 
 After changing `app/app.R`, `UI_SPEC.md` filter or column rules, or the `v_current_faculty` view, and after a roster refresh if you want to confirm the Finder still agrees with the database, run:
 
-```sh
+``` sh
 RENV_CONFIG_AUTOLOADER_ENABLED=FALSE Rscript tests/test_faculty_finder.R
 ```
 
@@ -115,7 +115,7 @@ If the loader reports that the database is locked, close other DuckDB connection
 
 If a query of `v_current_faculty` (or the Faculty Finder) fails with an error mentioning the ICU extension or `CURRENT_DATE`, the locked `duckdb` package needs DuckDB's ICU extension to evaluate the current-record views. Install it once per machine from an R session in the project folder, then retry:
 
-```r
+``` r
 renv::load()
 con <- DBI::dbConnect(duckdb::duckdb())
 DBI::dbExecute(con, "INSTALL icu")

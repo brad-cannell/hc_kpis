@@ -1,21 +1,20 @@
 # Harris College Key Performance Indicators
 
-This project creates and manages a lightweight relational database for tracking
-faculty status and related metrics in Harris College.
+This project creates and manages a lightweight relational database for tracking faculty status and related metrics in Harris College.
 
 For day-to-day roster updates and common checks, see [GUIDE.md](GUIDE.md).
 
 ## 🎯 Purpose
 
-1. Describe Harris College faculty status (e.g., tenure track, graduate status).
-2. Monitor research KPIs (e.g., research projects, grant writing, and publishing).
-3. Track faculty research interests and facilitate research collaborations.
+1.  Describe Harris College faculty status (e.g., tenure track, graduate status).
+2.  Monitor research KPIs (e.g., research projects, grant writing, and publishing).
+3.  Track faculty research interests and facilitate research collaborations.
 
----
+------------------------------------------------------------------------
 
 ## 📁 Directory Structure
 
-```
+```         
 HC_KPIs/
 ├── db/
 │   └── faculty.duckdb
@@ -37,7 +36,7 @@ HC_KPIs/
 └── README.md
 ```
 
----
+------------------------------------------------------------------------
 
 ## 🧩 Data Model
 
@@ -50,7 +49,7 @@ The database is organized around a **core person–status structure**:
 
 ### Entity-Relationship Diagram
 
-```mermaid
+``` mermaid
 erDiagram
     people {
       TEXT person_id PK
@@ -99,16 +98,16 @@ erDiagram
 
 ### Table Overview
 
-| Table                     | Type       | Description                                                               |
-| ------------------------- | ---------- | ------------------------------------------------------------------------- |
-| `people`                  | Core table | Basic identifying information for each person.                            |
-| `tenure_status`           | Core table | Time-varying track and unit for each person. One row per person per unit. |
-| `graduate_faculty_status` | Core table | Time-varying graduate faculty standing for each person.                   |
-| `center_affiliations`     | Core table | Time-varying center affiliations. One row per person per center.          |
-| `v_current_tenure`        | View       | Filters `tenure_status` to active rows only.                              |
-| `v_current_grad_faculty`  | View       | Filters `graduate_faculty_status` to active rows only.                    |
-| `v_current_center_affiliations` | View | Filters `center_affiliations` to active rows only.                        |
-| `v_current_faculty`       | View       | Joins all three tables into a single current faculty roster.              |
+| Table | Type | Description |
+|--------------|--------------|-------------------------------------------|
+| `people` | Core table | Basic identifying information for each person. |
+| `tenure_status` | Core table | Time-varying track and unit for each person. One row per person per unit. |
+| `graduate_faculty_status` | Core table | Time-varying graduate faculty standing for each person. |
+| `center_affiliations` | Core table | Time-varying center affiliations. One row per person per center. |
+| `v_current_tenure` | View | Filters `tenure_status` to active rows only. |
+| `v_current_grad_faculty` | View | Filters `graduate_faculty_status` to active rows only. |
+| `v_current_center_affiliations` | View | Filters `center_affiliations` to active rows only. |
+| `v_current_faculty` | View | Joins all three tables into a single current faculty roster. |
 
 ### Valid Values
 
@@ -122,68 +121,70 @@ erDiagram
 
 - APHS, COSD, HCHS, KINE, LIINK, NRAN, NURS, OTD, PA, SOWO
 
----
+------------------------------------------------------------------------
 
 ## 🚀 Getting Started
 
-1. **Open the R Project**
-   - Double-click `KPIs.Rproj` or open this folder in RStudio.
+1.  **Open the R Project**
 
-2. **Create the database and tables**
+    - Double-click `KPIs.Rproj` or open this folder in RStudio.
 
-   ```r
-   source("R/data_01_duckdb_schema.R")
-   ```
+2.  **Create the database and tables**
 
-3. **Load people**
+    ``` r
+    source("R/data_01_duckdb_schema.R")
+    ```
 
-   ```r
-   source("R/data_02_load_people.R")
-   ```
+3.  **Load people**
 
-4. **Load tenure status**
+    ``` r
+    source("R/data_02_load_people.R")
+    ```
 
-   ```r
-   source("R/data_03_load_tenure_status.R")
-   ```
+4.  **Load tenure status**
 
-5. **Load graduate faculty status**
+    ``` r
+    source("R/data_03_load_tenure_status.R")
+    ```
 
-   ```r
-   source("R/data_04_load_grad_faculty_status.R")
-   ```
+5.  **Load graduate faculty status**
 
-6. **Load center affiliations**
+    ``` r
+    source("R/data_04_load_grad_faculty_status.R")
+    ```
 
-   ```r
-   source("R/data_05_load_center_affiliations.R")
-   ```
+6.  **Load center affiliations**
 
-7. **Explore the data**
-   ```r
-   library(DBI)
-   library(duckdb)
-   con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
-   dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
-   dbDisconnect(con)
-   ```
+    ``` r
+    source("R/data_05_load_center_affiliations.R")
+    ```
+
+7.  **Explore the data**
+
+    ``` r
+    library(DBI)
+    library(duckdb)
+    con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+    dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
+    dbDisconnect(con)
+    ```
 
 > **Always run scripts in order** (`01` → `02` → `03` → `04` → `05`).
 
----
+------------------------------------------------------------------------
 
 ## ➕ Adding or Updating Data
 
 All data flows from a single source file:
 
-```
+```         
 data/raw/faculty_roster_clean.csv
 ```
 
 Expected columns:
 
 | Column                | Description                                     |
-| --------------------- | ----------------------------------------------- |
+|-----------------------|-------------------------------------------------|
 | `given_name`          | First name                                      |
 | `last_name`           | Last name                                       |
 | `track`               | Tenured, Tenure-Track, or Professional Practice |
@@ -196,26 +197,27 @@ Expected columns:
 
 ### To update data
 
-1. Edit `data/raw/faculty_roster_clean.csv` with the new or corrected rows.
-2. Re-run the relevant loader script(s):
-   ```r
-   source("R/data_02_load_people.R")
-   source("R/data_03_load_tenure_status.R")
-   source("R/data_04_load_grad_faculty_status.R")
-   source("R/data_05_load_center_affiliations.R")
-   ```
-3. Verify your changes:
-   ```r
-   con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
-   dbGetQuery(con, "SELECT COUNT(*) AS n_people FROM people;")
-   dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
-   dbDisconnect(con)
-   ```
+1.  Edit `data/raw/faculty_roster_clean.csv` with the new or corrected rows.
 
-`data_02_load_people.R` is idempotent: rerunning it will not duplicate people.
-- Existing person + unchanged data -> no change
-- Existing person + changed name formatting/casing -> update
-- New person -> insert
+2.  Re-run the relevant loader script(s):
+
+    ``` r
+    source("R/data_02_load_people.R")
+    source("R/data_03_load_tenure_status.R")
+    source("R/data_04_load_grad_faculty_status.R")
+    source("R/data_05_load_center_affiliations.R")
+    ```
+
+3.  Verify your changes:
+
+    ``` r
+    con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+    dbGetQuery(con, "SELECT COUNT(*) AS n_people FROM people;")
+    dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
+    dbDisconnect(con)
+    ```
+
+`data_02_load_people.R` is idempotent: rerunning it will not duplicate people. - Existing person + unchanged data -\> no change - Existing person + changed name formatting/casing -\> update - New person -\> insert
 
 ### Joint appointments
 
@@ -229,48 +231,59 @@ Center affiliations are loaded when `center_code` is present in the source CSV. 
 
 To record a change over time rather than overwriting history:
 
-1. Set `valid_to` on the old row to the date the status ended.
-2. Add a new row with the updated status and a new `valid_from` date.
+1.  Set `valid_to` on the old row to the date the status ended.
+2.  Add a new row with the updated status and a new `valid_from` date.
 
----
+------------------------------------------------------------------------
 
 ## 💻 New Computer Setup Checklist
 
 Use this checklist when setting up the project on a different machine.
 
-1. Install prerequisites:
-   - `R`
-   - `RStudio` (or your preferred IDE)
-   - `git`
-2. Clone the repository and open the project:
-   - `git clone <your-repo-url>`
-   - `cd hc_kpis`
-   - Open `KPIs.Rproj`
-3. Install required R packages:
-   ```r
-   install.packages(c("DBI", "duckdb", "dplyr", "readr", "stringr", "lubridate"))
-   ```
-4. Confirm source data exists:
-   - `data/raw/faculty_roster_clean.csv`
-5. Build the database in order:
-   ```r
-   source("R/data_01_duckdb_schema.R")
-   source("R/data_02_load_people.R")
-   source("R/data_03_load_tenure_status.R")
-   source("R/data_04_load_grad_faculty_status.R")
-   source("R/data_05_load_center_affiliations.R")
-   ```
-6. Smoke-test the database:
-   ```r
-   library(DBI)
-   library(duckdb)
-   con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
-   dbGetQuery(con, "SELECT COUNT(*) AS n_people FROM people;")
-   dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
-   dbDisconnect(con)
-   ```
+1.  Install prerequisites:
 
----
+    - `R`
+    - `RStudio` (or your preferred IDE)
+    - `git`
+
+2.  Clone the repository and open the project:
+
+    - `git clone <your-repo-url>`
+    - `cd hc_kpis`
+    - Open `KPIs.Rproj`
+
+3.  Install required R packages:
+
+    ``` r
+    install.packages(c("DBI", "duckdb", "dplyr", "readr", "stringr", "lubridate"))
+    ```
+
+4.  Confirm source data exists:
+
+    - `data/raw/faculty_roster_clean.csv`
+
+5.  Build the database in order:
+
+    ``` r
+    source("R/data_01_duckdb_schema.R")
+    source("R/data_02_load_people.R")
+    source("R/data_03_load_tenure_status.R")
+    source("R/data_04_load_grad_faculty_status.R")
+    source("R/data_05_load_center_affiliations.R")
+    ```
+
+6.  Smoke-test the database:
+
+    ``` r
+    library(DBI)
+    library(duckdb)
+    con <- dbConnect(duckdb::duckdb("db/faculty.duckdb"))
+    dbGetQuery(con, "SELECT COUNT(*) AS n_people FROM people;")
+    dbGetQuery(con, "SELECT * FROM v_current_faculty LIMIT 10;")
+    dbDisconnect(con)
+    ```
+
+------------------------------------------------------------------------
 
 ## Development Notes
 
