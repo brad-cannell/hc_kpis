@@ -4,10 +4,12 @@ CREATE TABLE IF NOT EXISTS center_affiliations (
   center_code    TEXT NOT NULL,
   center_name    TEXT,
   is_primary     BOOLEAN NOT NULL DEFAULT FALSE,
-  valid_from     DATE NOT NULL,
+  valid_from     DATE,
   valid_to       DATE,
   source         TEXT,
   notes          TEXT,
+  is_current     BOOLEAN DEFAULT TRUE,
+  recorded_on    DATE,
   FOREIGN KEY (person_id) REFERENCES people(person_id),
   CHECK (valid_to IS NULL OR valid_to >= valid_from)
 );
@@ -20,6 +22,3 @@ CREATE INDEX IF NOT EXISTS idx_center_aff_center
 
 CREATE INDEX IF NOT EXISTS idx_center_aff_valid
   ON center_affiliations(valid_from, valid_to);
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_center_aff_business_key
-  ON center_affiliations(person_id, center_code, coalesce(center_name, ''), valid_from);

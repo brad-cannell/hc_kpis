@@ -1,6 +1,6 @@
 # .gitignore
-db/
+/db
 *.duckdb
 *.duckdb.wal
 .DS_Store
-data/
+/data

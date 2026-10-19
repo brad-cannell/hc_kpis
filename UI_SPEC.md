@@ -83,7 +83,7 @@ Technical error details may be written to the local R console for diagnosis, but
 There is no in-app data-refresh button in Version 0. A refresh is a controlled data-maintenance workflow:
 
 1. Close the Faculty Finder and any other DuckDB viewer or writer.
-2. Update `/Users/bradcannell/Library/CloudStorage/Dropbox/Datasets/hc_kpis/raw/faculty_roster_clean.csv` using the roster rules in `GUIDE.md`.
+2. Update `/Users/bradcannell/Library/CloudStorage/Dropbox/ADR Admin/HC Faculty Database/Data/raw/faculty_roster_clean.csv` using the roster rules in `GUIDE.md`.
 3. From the project folder, run the existing five scripts in order: `data_01_duckdb_schema.R`, `data_02_load_people.R`, `data_03_load_tenure_status.R`, `data_04_load_grad_faculty_status.R`, and `data_05_load_center_affiliations.R`.
 4. Run the guide's read-only checks against `v_current_faculty`; when loader code has changed, also run `tests/regression_test_status_loaders.R`.
 5. Relaunch the Faculty Finder. It opens a new read-only connection and shows the rebuilt current roster.

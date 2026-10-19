@@ -10,17 +10,27 @@ It does not yet track faculty research interests, grants, publications, or other
 
 ## Where the data lives
 
-The editable source data is stored in Dropbox at `/Users/bradcannell/Library/CloudStorage/Dropbox/ADR Admin/HC KPIs`. In this repository, `data/` is a symlink to that location so the R loader scripts keep using the familiar `data/raw/` paths.
+The project working files are stored in Dropbox at `/Users/bradcannell/Library/CloudStorage/Dropbox/ADR Admin/HC Faculty Database`. The folders have these roles:
 
-The most important file is `data/raw/faculty_roster_clean.csv`. The local DuckDB database created from that file is `db/faculty.duckdb`; it is a rebuildable working file and is not stored in Git.
+- `Data/`: inputs used by the loaders, including `raw/faculty_roster_clean.csv`.
+- `Source Materials/`: original faculty rosters, Watermark exports, and research materials awaiting processing or reconciliation.
+- `Assessments/`: analysis notebooks, assessment reports, and source reviews. These may contain private faculty information and remain outside Git.
+- `Reports/`: database-related reporting deliverables.
+- `Backups/`: preserved database and source backups. Existing backups retain their original internal layout and historical restoration instructions; translate old destination paths to the locations described here when restoring.
 
-On a new computer, wait for Dropbox to make that folder available, then create the local link from the project root:
+The repo's `data/` symlink points to the Dropbox `Data/` folder, so the R loaders keep using `data/raw/faculty_roster_clean.csv`.
+
+The working database lives outside the repo and cloud synchronization at `/Users/bradcannell/Library/Application Support/hc_kpis/db/faculty.duckdb`. The repo's `db/` symlink points to that containing directory. The database retains person identifiers and status history that the current roster alone cannot reconstruct. Preserve it rather than deleting it to refresh the roster.
+
+On a new computer, make the Dropbox files available locally and restore a verified database backup to `~/Library/Application Support/hc_kpis/db/faculty.duckdb`. Then create the links from the project root, adjusting the Dropbox location if needed:
 
 ``` sh
-ln -s "/Users/bradcannell/Library/CloudStorage/Dropbox/ADR Admin/HC KPIs" data
+# Link existing external storage without replacing any existing project paths.
+ln -s "$HOME/Library/CloudStorage/Dropbox/ADR Admin/HC Faculty Database/Data" data
+ln -s "$HOME/Library/Application Support/hc_kpis/db" db
 ```
 
-The symlink is intentionally local and is not versioned. Do not add the roster files or the `data/` symlink to Git.
+Both links are intentionally local and excluded by the shared `.gitignore`. Keep source data, database files, private notebook outputs, and reports out of Git. Back up the closed working database into the Dropbox `Backups/` folder before migrations; the active database is not automatically synchronized by Dropbox.
 
 ## Update the roster
 
@@ -111,7 +121,7 @@ The check compares the Finder's filters and displayed columns with independent S
 
 ## Troubleshooting
 
-If the loader reports that the database is locked, close other DuckDB connections and retry. If a roster row cannot be matched to a person, check the `given_name` and `family_name` spelling against the same CSV. If you need a wholly fresh rebuild, first make a backup of the Dropbox source data, then remove only the local `db/faculty.duckdb` file and run the five loader scripts in order.
+If the loader reports that the database is locked, close other DuckDB connections and retry. If a roster row cannot be matched to a person, check the `given_name` and `family_name` spelling against the same CSV. If the database must be recovered, restore a verified database backup to the external location described above. A fresh build from the roster does not recover existing person identifiers or status history.
 
 If a query of `v_current_faculty` (or the Faculty Finder) fails with an error mentioning the ICU extension or `CURRENT_DATE`, the locked `duckdb` package needs DuckDB's ICU extension to evaluate the current-record views. Install it once per machine from an R session in the project folder, then retry:
 

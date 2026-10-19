@@ -23,15 +23,34 @@ if (length(sql_files) == 0) {
 }
 
 # Execute each file in order --------------------------------------------------
-for (f in sql_files) {
-  cat("Running:", basename(f), "\n")
-  stmt <- readr::read_file(f)
-  DBI::dbExecute(con, stmt)
-}
+# A failed migration must leave both the schema and legacy rows intact.
+tryCatch(
+  DBI::dbWithTransaction(con, {
+    for (f in sql_files) {
+      # Do not repeat structural ALTERs on an already migrated file. Besides
+      # avoiding needless index rebuilds, DuckDB 1.5.2 can crash when repeated
+      # ALTER/index changes are committed after reopening an on-disk database.
+      if (basename(f) == "05_unknown_appointments.sql" &&
+          "is_active" %in% DBI::dbListFields(con, "people") &&
+          all(vapply(c("tenure_status", "graduate_faculty_status", "center_affiliations"),
+            function(table) all(c("is_current", "recorded_on") %in% DBI::dbListFields(con, table)),
+            logical(1)))) {
+        cat("Already applied:", basename(f), "\n")
+        next
+      }
+      cat("Running:", basename(f), "\n")
+      DBI::dbExecute(con, readr::read_file(f))
+    }
+  }),
+  error = function(e) {
+    DBI::dbDisconnect(con, shutdown = TRUE)
+    stop(e)
+  }
+)
 
 # Quick check -----------------------------------------------------------------
 cat("\nTables now in database:\n")
 print(dbGetQuery(con, "SHOW TABLES;"))
 
-dbDisconnect(con)
+dbDisconnect(con, shutdown = TRUE)
 cat("\nSchema created/updated in:", db_path, "\n")

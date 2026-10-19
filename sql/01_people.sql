@@ -4,13 +4,10 @@
 CREATE TABLE IF NOT EXISTS people (
   person_id  TEXT PRIMARY KEY,
   first_name TEXT NOT NULL,
-  last_name  TEXT NOT NULL
+  last_name  TEXT NOT NULL,
+  is_active BOOLEAN -- NULL means activity has not been reviewed.
 );
 
--- Prevent accidental duplicate person records caused by rerunning loaders.
--- We enforce uniqueness on normalized names (trim + lowercase).
-CREATE UNIQUE INDEX IF NOT EXISTS uq_people_name_norm
-  ON people (
-    lower(trim(first_name)),
-    lower(trim(last_name))
-  );
+-- The people loader validates normalized-name uniqueness transactionally.
+-- A DuckDB secondary name index prevents a surname update on a person whose
+-- ID is referenced by appointments. Identity remains protected by the PK/FKs.

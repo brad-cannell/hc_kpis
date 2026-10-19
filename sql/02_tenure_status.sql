@@ -3,17 +3,19 @@
 CREATE TABLE IF NOT EXISTS tenure_status (
   tenure_id  TEXT PRIMARY KEY,
   person_id  TEXT NOT NULL,
-  unit_code  TEXT NOT NULL,
+  unit_code  TEXT,
   unit_name  TEXT,
   track      TEXT CHECK (track IN (
                'Tenured',
                'Tenure-Track',
                'Professional Practice'
              )),
-  valid_from DATE NOT NULL,
+  valid_from DATE,
   valid_to   DATE,
   source     TEXT,
   notes      TEXT,
+  is_current BOOLEAN DEFAULT TRUE,
+  recorded_on DATE, -- Observation date, never an inferred appointment date.
   FOREIGN KEY (person_id) REFERENCES people(person_id)
 );
 

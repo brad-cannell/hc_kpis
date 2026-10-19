@@ -29,7 +29,10 @@ test_file <- normalizePath(test_file, mustWork = TRUE)
 project_dir <- normalizePath(file.path(dirname(test_file), ".."), mustWork = TRUE)
 setwd(project_dir)
 
-if (!file.exists(file.path(project_dir, "db", "faculty.duckdb"))) {
+# An explicit override lets the same UI checks exercise a migrated disposable
+# database before the working database is refreshed.
+test_db <- Sys.getenv("HC_KPIS_TEST_DB", file.path(project_dir, "db", "faculty.duckdb"))
+if (!file.exists(test_db)) {
   stop("Working database not found at db/faculty.duckdb. Run the five loader scripts first.")
 }
 
@@ -38,6 +41,7 @@ if (!file.exists(file.path(project_dir, "db", "faculty.duckdb"))) {
 # defines database_path, which points at the working database.
 app_expressions <- parse("app/app.R")
 for (expression in app_expressions[-length(app_expressions)]) eval(expression, globalenv())
+database_path <- test_db
 
 # The synthetic database lives in R's session temporary folder, which R removes
 # when the session ends.
@@ -197,7 +201,10 @@ if (nrow(units) != 2L) {
   DBI::dbDisconnect(con, shutdown = TRUE)
   stop("The synthetic checks need NURS and SOWO rows in tenure_status.")
 }
-invisible(DBI::dbExecute(con, "INSERT INTO people VALUES ('syn-1', 'Zed', 'Aajoint'), ('syn-2', 'Amy', 'Aacenter'), ('syn-3', 'Nora', 'Aanorecords')"))
+invisible(DBI::dbExecute(con, "INSERT INTO people (person_id, first_name, last_name) VALUES ('syn-1', 'Zed', 'Aajoint'), ('syn-2', 'Amy', 'Aacenter'), ('syn-3', 'Nora', 'Aanorecords')"))
+if ("is_active" %in% DBI::dbListFields(con, "people")) {
+  invisible(DBI::dbExecute(con, "UPDATE people SET is_active = TRUE WHERE person_id IN ('syn-1','syn-2','syn-3')"))
+}
 invisible(DBI::dbExecute(con, sprintf("INSERT INTO tenure_status (tenure_id, person_id, unit_code, unit_name, track, valid_from) VALUES
   ('syn-t1', 'syn-1', 'SOWO', %s, 'Professional Practice', DATE '2020-01-01'),
   ('syn-t2', 'syn-1', 'NURS', %s, 'Tenured', DATE '2020-01-01'),

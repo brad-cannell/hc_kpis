@@ -99,7 +99,7 @@ erDiagram
 ### Table Overview
 
 | Table | Type | Description |
-|--------------|--------------|-------------------------------------------|
+|----------------|----------------|----------------------------------------|
 | `people` | Core table | Basic identifying information for each person. |
 | `tenure_status` | Core table | Time-varying track and unit for each person. One row per person per unit. |
 | `graduate_faculty_status` | Core table | Time-varying graduate faculty standing for each person. |
@@ -258,11 +258,12 @@ Use this checklist when setting up the project on a different machine.
     install.packages(c("DBI", "duckdb", "dplyr", "readr", "stringr", "lubridate"))
     ```
 
-4.  Confirm source data exists:
+4.  Set up the external data and database locations using [Where the data lives](GUIDE.md#where-the-data-lives). Restore a verified database backup and create the local `data/` and `db/` links. Confirm these paths resolve:
 
     - `data/raw/faculty_roster_clean.csv`
+    - `db/faculty.duckdb`
 
-5.  Build the database in order:
+5.  For an approved roster refresh, run the loaders in order against the existing database. Setting up another computer does not require rebuilding it:
 
     ``` r
     source("R/data_01_duckdb_schema.R")
@@ -288,9 +289,10 @@ Use this checklist when setting up the project on a different machine.
 ## Development Notes
 
 - Run scripts in numeric order (`data_01_...`, `data_02_...`, etc.).
-- The DuckDB file (`db/faculty.duckdb`) is **not** tracked in version control.
+- Private working files live in Dropbox at `~/Library/CloudStorage/Dropbox/ADR Admin/HC Faculty Database`. The ignored `data/` symlink points to its `Data/` folder.
+- The ignored `db/` symlink points to `~/Library/Application Support/hc_kpis/db`, outside the repo and cloud synchronization. The existing `faculty.duckdb` file is preserved there. See [GUIDE.md](GUIDE.md#where-the-data-lives) for the folder layout, local setup, and backup locations.
 - SQL files define structure; R scripts manage data loading.
-- To rebuild the database from scratch, delete `db/faculty.duckdb` and rerun all scripts in order.
+- Preserve the working database during refreshes. Rebuilding from the roster alone does not recover existing person identifiers or status history; restore a verified database backup when recovery is needed.
 - `valid_from` is set to the date the loader script is run (`Sys.Date()`). There is no `valid_from` column in the source CSV.
 - If you are using an extension such as DBCode to view `db/faculty.duckdb`, you may need to restart your IDE to see updates, especially after structural database changes.
 - `people` enforces normalized-name uniqueness (`trim` + lowercase) to prevent accidental duplicate inserts.
